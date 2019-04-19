@@ -15,7 +15,17 @@ from nav_msgs.msg import Odometry
 from cv_bridge import CvBridge, CvBridgeError
 import visao_module
 
+bridge = CvBridge()
 
+cv_image = None
+media = []
+centro = []
+atraso = 1.5E9
+viu_dog = False
+viu_gato = False
+
+area = 0.0
+check_delay = False
 
 
 # Funções de Leitura
@@ -29,6 +39,32 @@ def bumpeou(dado):
 	global bumper
 	bumper = dado.data
 
+def roda_todo_frame(imagem):
+	global cv_image
+	global media
+	global centro
+	global viu_dog
+	global viu_gato
+
+	now = rospy.get_rostime()
+	imgtime = imagem.header.stamp
+	lag = now-imgtime
+	delay = lag.nsecs
+	if delay > atraso and check_delay==True:
+		return 
+	antes = time.clock()
+	cv_image = bridge.compressed_imgmsg_to_cv2(imagem, "bgr8")
+	centro, imagem, resultados =  visao_module.processa(cv_image)
+
+	for r in resultados:
+		if r[0] == "dog":
+			viu_dog = True
+			print("cell phhone\n\n\n\n\n\n")
+
+		elif r[0] == "cat":
+			viu_gato = True
+			print("gato\n\n\n\n\n\n")
+		depois = time.clock()
 
 # Código Principal
 if __name__=="__main__":
@@ -40,7 +76,6 @@ if __name__=="__main__":
 	recebe_bumper = rospy.Subscriber("/bumper", UInt8, bumpeou)
 	recebe_scan = rospy.Subscriber("/scan", LaserScan, scaneou)
 
-
 	while not rospy.is_shutdown():
 		bumper = None
 
@@ -48,7 +83,22 @@ if __name__=="__main__":
 		velocidade_saida.publish(velocidade)
 		rospy.sleep(0.1)
 
+# Identificador de Objetos
+		if viu_dog:
+			velocidade = Twist(Vector3(0.1,0,0), Vector3(0,0,0))
+			velocidade_saida.publish(velocidade)
+			rospy.sleep(0.8)
+			viu_dog = False
 
+		if viu_gato:
+			velocidade = Twist(Vector3(-0.1,0,0), Vector3(0,0,0))
+			velocidade_saida.publish(velocidade)
+			rospy.sleep(0.8)
+			viu_gato = False
+
+		velocidade = Twist(Vector3(0.0, 0, 0), Vector3(0, 0, 0))
+		velocidade_saida.publish(velocidade)
+		rospy.sleep(0.1)
 
 # Laser
 	# Frente
@@ -120,5 +170,3 @@ if __name__=="__main__":
 			velocidade = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.5))
 			velocidade_saida.publish(velocidade)
 			rospy.sleep(4)
-
-		print('laser[0] = {}, laser[2] = {}, laser[357] = {}\nlaser[180] = {}, laser[182] = {}, laser[177] = {}\nbumper = {}\n' .format(laser[0], laser[2], laser[357], laser[180], laser[182], laser[177], bumper))
